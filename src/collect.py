@@ -10,6 +10,7 @@ import sys
 
 import config
 from src.metrika_client import MetrikaClient
+from src.placements import aggregate_placements
 from src.storage import Storage
 
 
@@ -40,6 +41,46 @@ def collect(date1: str = "30daysAgo", date2: str = "yesterday") -> None:
     )
     storage.save(sources, "traffic_sources")
     print(f"  → строк: {len(sources)}")
+
+    # 3) Разбивка по рекламным кампаниям (UTM Campaign)
+    print("Выгружаю разбивку по рекламным кампаниям")
+    campaigns = client.get_data(
+        metrics=["ym:s:visits", "ym:s:users", "ym:s:bounceRate", "ym:s:pageDepth"],
+        dimensions=["ym:s:UTMCampaign"],
+        date1=date1,
+        date2=date2,
+        sort="-ym:s:visits",
+        limit=100,
+    )
+    storage.save(campaigns, "ad_campaigns")
+    print(f"  → строк: {len(campaigns)}")
+
+    # 4) Разбивка по рекламным площадкам/каналам (рекл. система + источник + канал)
+    print("Выгружаю разбивку по рекламным площадкам/каналам")
+    platforms = client.get_data(
+        metrics=["ym:s:visits", "ym:s:users", "ym:s:bounceRate"],
+        dimensions=["ym:s:lastAdvEngine", "ym:s:UTMSource", "ym:s:UTMMedium"],
+        date1=date1,
+        date2=date2,
+        sort="-ym:s:visits",
+        limit=100,
+    )
+    storage.save(platforms, "ad_platforms")
+    print(f"  → строк: {len(platforms)}")
+
+    # 5) Площадки показа РСЯ — из UTM Content (токен src), с агрегацией
+    print("Выгружаю площадки показа (UTM Content → src)")
+    utm = client.get_data(
+        metrics=["ym:s:visits", "ym:s:users", "ym:s:bounceRate"],
+        dimensions=["ym:s:UTMContent"],
+        date1=date1,
+        date2=date2,
+        sort="-ym:s:visits",
+        limit=10000,
+    )
+    placements = aggregate_placements(utm)
+    storage.save(placements, "ad_placements")
+    print(f"  → строк UTM Content: {len(utm)} → площадок: {len(placements)}")
 
     print(f"\nГотово. База: {config.DB_PATH}")
 

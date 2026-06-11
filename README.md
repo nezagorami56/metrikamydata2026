@@ -74,6 +74,11 @@ metrika-dashboard/
 ├── src/
 │   ├── metrika_client.py  # клиент Reporting API
 │   ├── storage.py         # сохранение в SQLite
+│   ├── anomaly.py         # детектор аномалий
+│   ├── placements.py      # парсинг площадок РСЯ из UTM Content
+│   ├── reports.py         # тексты отчётов для Telegram
+│   ├── telegram_bot.py    # отправка в Telegram
+│   ├── scheduler.py       # отчёты по расписанию
 │   └── collect.py         # скрипт выгрузки
 ├── dashboard/
 │   └── app.py             # Streamlit-дашборд

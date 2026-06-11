@@ -111,3 +111,83 @@ if not sources.empty:
     )
     fig2.update_layout(yaxis={"categoryorder": "total ascending"})
     st.plotly_chart(fig2, use_container_width=True)
+
+# --- Рекламные кампании / площадки ---
+campaigns = storage.load("ad_campaigns")
+if not campaigns.empty:
+    st.subheader("🎯 Рекламные кампании")
+
+    camp = campaigns.copy()
+    camp["Кампания"] = camp["ym:s:UTMCampaign"].fillna("(не задано)")
+    # короткая подпись для графика, чтобы длинные UTM влезали
+    camp["short"] = camp["Кампания"].str.slice(0, 40) + camp["Кампания"].str.len().gt(40).map({True: "…", False: ""})
+
+    rank_metric = st.radio(
+        "Ранжировать по",
+        options=["ym:s:visits", "ym:s:users"],
+        format_func=lambda m: {"ym:s:visits": "Визиты", "ym:s:users": "Посетители"}[m],
+        horizontal=True,
+    )
+    top_n = st.slider("Сколько кампаний показать", 5, 30, 10)
+    top = camp.sort_values(rank_metric, ascending=False).head(top_n)
+
+    fig3 = px.bar(
+        top,
+        x=rank_metric,
+        y="short",
+        orientation="h",
+        color="ym:s:bounceRate",
+        color_continuous_scale="RdYlGn_r",  # зелёный = мало отказов, красный = много
+        labels={
+            rank_metric: {"ym:s:visits": "Визиты", "ym:s:users": "Посетители"}[rank_metric],
+            "short": "Кампания",
+            "ym:s:bounceRate": "Отказы, %",
+        },
+        height=max(350, top_n * 28),
+    )
+    fig3.update_layout(yaxis={"categoryorder": "total ascending"})
+    st.plotly_chart(fig3, use_container_width=True)
+
+    # Полная таблица с округлением
+    tbl = camp.sort_values(rank_metric, ascending=False).head(top_n).copy()
+    tbl["Визиты"] = tbl["ym:s:visits"].round(0).astype(int)
+    tbl["Посетители"] = tbl["ym:s:users"].round(0).astype(int)
+    tbl["Отказы, %"] = tbl["ym:s:bounceRate"].round(1)
+    tbl["Глубина"] = tbl["ym:s:pageDepth"].round(2)
+    st.dataframe(
+        tbl[["Кампания", "Визиты", "Посетители", "Отказы, %", "Глубина"]],
+        use_container_width=True, hide_index=True,
+    )
+
+# --- Площадки показа РСЯ (из UTM Content) ---
+placements = storage.load("ad_placements")
+if not placements.empty:
+    st.subheader("📍 Площадки показа РСЯ")
+    st.caption("Сайты и приложения рекламной сети Яндекса, где показывалась реклама "
+               "(источник — токен src из UTM Content)")
+
+    top_p = st.slider("Сколько площадок показать", 5, 40, 15, key="placements_n")
+    pl = placements.sort_values("visits", ascending=False).head(top_p)
+
+    figp = px.bar(
+        pl,
+        x="visits",
+        y="placement",
+        orientation="h",
+        color="bounce_rate",
+        color_continuous_scale="RdYlGn_r",
+        labels={"visits": "Визиты", "placement": "Площадка", "bounce_rate": "Отказы, %"},
+        height=max(350, top_p * 26),
+    )
+    figp.update_layout(yaxis={"categoryorder": "total ascending"})
+    st.plotly_chart(figp, use_container_width=True)
+
+    tblp = pl.copy()
+    tblp["Площадка"] = tblp["placement"]
+    tblp["Визиты"] = tblp["visits"].round(0).astype(int)
+    tblp["Посетители"] = tblp["users"].round(0).astype(int)
+    tblp["Отказы, %"] = tblp["bounce_rate"]
+    st.dataframe(
+        tblp[["Площадка", "Визиты", "Посетители", "Отказы, %"]],
+        use_container_width=True, hide_index=True,
+    )
